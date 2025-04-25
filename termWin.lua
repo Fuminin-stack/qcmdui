@@ -1,6 +1,7 @@
 --- @meta
 require("panel")
 require("stringBUffer")
+llc = require("llcontrol").unpack()
 
 --- @class TermWin
 ---
@@ -16,4 +17,6 @@ require("stringBUffer")
 TermWin = {}
 TermWin.__index = TermWin
 
-
+function TermWin:clear()
+  io.write("\027[2J\027[H")
+end

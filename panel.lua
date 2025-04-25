@@ -1,5 +1,6 @@
 --- @meta
 require("stringBuffer")
+require("math")
 llc = require("llcontrol").unpack()
 
 --- @class Panel
@@ -14,9 +15,6 @@ llc = require("llcontrol").unpack()
 --- The size of the panel
 --- @field size table<string, integer>
 ---
---- Texts contents of a panel
---- @field paragraphs table<integer, table<integer, StringBuffer | integer>>
----
 --- Cursor position of in the panel
 --- @field cursor table<integer, integer>
 ---
@@ -27,17 +25,14 @@ llc = require("llcontrol").unpack()
 --- Set the set the target file
 --- @field redirect fun(self, target: file*)
 ---
---- Write to the target file
---- @field darw fun(self, paragraphs: table<integer, StringBuffer>)
----
 --- Clear the panel
---- @field clear fun(self)
+--- @field clear fun(self, fill?: string)
 ---
 --- @field cursor_sync fun(self)
 ---
 --- @field cursor_moveBy fun(self, pos: table<integer, integer>)
 ---
---- @field cursor_moveTo fun(self, pos: table<integer, integer>)
+--- @field cursor_moveTo fun(self, pos: table<integer, integer | string>)
 ---
 --- Move to the top left top of the Panel
 --- @field cursor_home fun(self)
@@ -67,7 +62,6 @@ function Panel.new(target, size, pos)
   self.target = target
   self.size = size
   self.pos = pos
-  self.paragraphs = {}
   self.cursor = {line = 0, column = 0}
   return self
 end
@@ -131,46 +125,95 @@ end
 function Panel:cursor_carriageReturn()
   self:cursor_moveBy({1,0})
   self:cursor_moveTo({"skip", 0})
-
 end
+
 function Panel:cursor_home()
   self.cursor = {line=0, column=0}
   self:cursor_sync()
 end
 
-function Panel:clear()
+function Panel:clear(fill)
   self:cursor_home()
   for _=1, self.size.line do
     for _=1, self.size.column do
-      self.target:write(" ")
+      if (fill == nil) then
+        self.target:write(SP)
+      else
+        self.target:write(fill)
+      end
       self:cursor_moveBy({0, 1})
     end
     self:cursor_carriageReturn()
   end
 end
 
-function Panel:draw()
-  local width = self.size.width
+--- @class TextPanel
+---
+--- @field paragraphs table<integer, StringBuffer>
+---
+--- @field hidden_lines integer
+---
+--- @field renderToLine fun(self): table<integer, StringBuffer>
+---
+--- @field editor_insert fun(self, char: string)
+---
+--- @field draw(self)
 
-  for i=1, #self.paragraphs do
-    local currentBuffer = self.paragraphs[i]
+TextPanel = setmetatable({}, {__index = Panel})
+TextPanel.__index = TextPanel
 
-    for j=1, #(currentBuffer.value) / width + 1 do
-      currentBuffer:writeToio(self.target, 1 + (j - 1)  * width, j * width)
-      self.target:cursor_carriageReturn()
+function TextPanel.new(target, size, pos)
+  local self = setmetatable({Panel.new(target, size, pos)}, TextPanel)
+  self.hidden_lines = 0
+  self.text_cursor = {buffer = 1, positiion = 1}
+  self.paragraphs = {}
+  return self
+end
+
+function TextPanel:renderToLine()
+  local lines = {}
+
+  for buffer in self.paragraphs do
+    buffer_remainded = buffer
+    local loop_times = math.ceil((#buffer) / self.size.column)
+    for _=1, loop_times do
+      buffer_remainded = buffer.split(self.size.column)
+      table.insert(lines, buffer)
     end
+  end
 
+  return lines
+end
+
+function TextPanel:editor_insert(char)
+  self.paragraphs[self.text_cursor.buffer]
+end
+
+function TextPanel:draw()
+  --- @type table<integer, StringBuffer>
+  local lines = self:renderToLine()
+
+  local lines_to_draw = 0
+  if (#lines - self.hidden_lines > self.size.lines) then
+    lines_to_draw = self.size.lines
+  else
+    lines_to_draw = #lines - self.hidden_lines
+  end
+
+  for i=1, lines_to_draw do
+    lines[i]:writeToio(self.target)
+    self:cursor_carriageReturn()
   end
 end
 
-function Panel:editor_carriageRetrun()
-end
 
-a = Panel.new(io.stdout, {line = 6, column = 20}, {line = 5, column = 5})
+
+a = TextPanel.new(io.stdout, {line = 6, column = 20}, {line = 5, column = 5})
 llc.enableRawMode()
 io.write("\027[2J\027[H")
 for _=1, 20 do
   io.write("abcdefghijklmnopqrstuvwxyz \n")
 end
-a:clear()
+a:clear("h")
+io.write(NL)
 llc.disableRawMode()
