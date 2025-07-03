@@ -163,6 +163,7 @@ TextPanel = setmetatable({}, {__index = Panel})
 TextPanel.__index = TextPanel
 
 function TextPanel.new(target, size, pos)
+  -- to-do
   local self = setmetatable({Panel.new(target, size, pos)}, TextPanel)
   self.hidden_lines = 0
   self.text_cursor = {buffer = 1, positiion = 1}
@@ -186,7 +187,6 @@ function TextPanel:renderToLine()
 end
 
 function TextPanel:editor_insert(char)
-  self.paragraphs[self.text_cursor.buffer]
 end
 
 function TextPanel:draw()
@@ -214,6 +214,8 @@ io.write("\027[2J\027[H")
 for _=1, 20 do
   io.write("abcdefghijklmnopqrstuvwxyz \n")
 end
+llc.disableRawMode()
+print(a.size)
 a:clear("h")
 io.write(NL)
 llc.disableRawMode()
